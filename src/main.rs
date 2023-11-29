@@ -1,23 +1,47 @@
-use tungstenite::{connect, Message};
-use url::Url;
+use reqwest;
+use serde_json;
+use serde::{Deserialize, Serialize};
 
-fn main() {
+use std::error::Error;
+
+mod constants;
+
+
+#[derive(Serialize, Deserialize)]
+struct LoginResponse {
+    member_id: String,
+    token: String
+}
+
+#[derive(Serialize, Deserialize)]
+struct LoginBody {
+    email: String,
+    password: String
+}
+
+#[tokio::main]
+async fn main() {
     env_logger::init();
 
-    let (mut socket, response) =
-        connect(Url::parse("ws://localhost:3012/socket").unwrap()).expect("Can't connect");
+    let token = get_token().await.expect("Could not get a token.").token;
+    println!("{}", token);
 
-    println!("Connected to the server");
-    println!("Response HTTP code: {}", response.status());
-    println!("Response contains the following headers:");
-    for (ref header, _value) in response.headers() {
-        println!("* {}", header);
-    }
+}
 
-    socket.send(Message::Text("Hello WebSocket".into())).unwrap();
-    loop {
-        let msg = socket.read().expect("Error reading message");
-        println!("Received: {}", msg);
-    }
-    // socket.close(None);
+async fn get_token() -> Result<LoginResponse, Box<dyn Error>>  {
+    let client = reqwest::Client::new();
+    let data = LoginBody {
+        email: constants::USER.into(), 
+        password: constants::PW.into()
+    };
+    let response_text =  client.post(constants::PROD_API)
+        .body(serde_json::to_string(&data).unwrap())
+        .header("Content-Type", "application/json")
+        .header("accept", "application/json")
+        .send()
+        .await?
+        .text()
+        .await?;
+
+    Ok(serde_json::from_str(&response_text).unwrap())
 }
