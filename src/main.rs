@@ -1,47 +1,40 @@
-use reqwest;
-use serde_json;
-use serde::{Deserialize, Serialize};
+extern crate websocket;
+use websocket::{ClientBuilder, OwnedMessage};
+use websocket::header::{Headers, Authorization, Bearer};
 
-use std::error::Error;
-
+mod kalshi_http;
 mod constants;
-
-
-#[derive(Serialize, Deserialize)]
-struct LoginResponse {
-    member_id: String,
-    token: String
-}
-
-#[derive(Serialize, Deserialize)]
-struct LoginBody {
-    email: String,
-    password: String
-}
 
 #[tokio::main]
 async fn main() {
     env_logger::init();
 
-    let token = get_token().await.expect("Could not get a token.").token;
-    println!("{}", token);
+    let token = kalshi_http::login(
+        constants::DEMO_API, 
+        kalshi_http::LoginBody::new(
+            constants::USER.to_string(), 
+            constants::DEMO_PW.to_string()))
+        .await
+        .expect("Could not get a token.")
+        .token;
+
+    let mut custom_headers = Headers::new();
+    custom_headers.set(Authorization(Bearer {
+        token: token.to_owned(),
+    }));
+
+    let mut client = ClientBuilder::new(constants::DEMO_WSS)
+        .unwrap()
+        .custom_headers(&custom_headers)
+        .connect_secure(None) // Connect with TLS
+        .unwrap();
+
+    match client.recv_message().unwrap() {
+        OwnedMessage::Text(s) => println!("{}", s),
+        OwnedMessage::Ping(ping_data) => println!("got pinged"),
+        _ => println!("not text")
+    }
 
 }
 
-async fn get_token() -> Result<LoginResponse, Box<dyn Error>>  {
-    let client = reqwest::Client::new();
-    let data = LoginBody {
-        email: constants::USER.into(), 
-        password: constants::PW.into()
-    };
-    let response_text =  client.post(constants::PROD_API)
-        .body(serde_json::to_string(&data).unwrap())
-        .header("Content-Type", "application/json")
-        .header("accept", "application/json")
-        .send()
-        .await?
-        .text()
-        .await?;
 
-    Ok(serde_json::from_str(&response_text).unwrap())
-}
