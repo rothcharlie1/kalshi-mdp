@@ -8,26 +8,27 @@ use redis::Client as RedisClient;
 use redis::Connection;
 use std::error::Error;
 use std::net::TcpStream;
-use log::debug;
+use log::{debug, error, info};
 
 use crate::kalshi_wss::SubscribeSubMessage;
 use crate::kalshi_wss::KalshiClientSubMessage as SubMessage;
-use crate::kalshi_wss::OrderbookDeltaMessage;
-use crate::kalshi_wss::OrderbookSnapshotMessage;
+use crate::kalshi_wss::{OrderbookMessage, Delta, Snapshot};
+use crate::redis_utils::RedisOrderbookClient;
 
 mod kalshi_http;
 mod constants;
 mod kalshi_wss;
+mod redis_utils;
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn Error>> {
+async fn main() -> Result<(), anyhow::Error> {
     env_logger::init();
 
     let token = kalshi_http::login(
-        constants::DEMO_API, 
+        constants::PROD_API, 
         kalshi_http::LoginBody::new(
             constants::USER.to_string(), 
-            constants::DEMO_PW.to_string()))
+            constants::PW.to_string()))
         .await
         .expect("Could not get a token.")
         .token;
@@ -37,19 +38,19 @@ async fn main() -> Result<(), Box<dyn Error>> {
         token: token.to_owned(),
     }));
 
-    let mut client = ClientBuilder::new(constants::DEMO_WSS)
+    let mut client = ClientBuilder::new(constants::PROD_WSS)
         .unwrap()
         .custom_headers(&custom_headers)
         .connect_secure(None) // Connect with TLS
         .unwrap();
 
     let mut msg_builder = kalshi_wss::KalshiClientMessageBuilder::new();
-    let sub_sub_msg = SubscribeSubMessage::new_default(vec!["INXDU-23DEC04-T4574.99".into()]);
+    let sub_sub_msg = SubscribeSubMessage::new_default(vec!["INXDU-23DEC05-T4574.99".into()]);
 
     let init_sub_msg = msg_builder.content(SubMessage::SubscribeSubMessage(sub_sub_msg))
         .build();
 
-    debug!("{:?}", init_sub_msg.to_websocket_message());
+    info!("Sending initial subscription message: {:?}", serde_json::to_string(&init_sub_msg).unwrap());
 
     client.send_message(&init_sub_msg.to_websocket_message())?;
 
@@ -57,20 +58,16 @@ async fn main() -> Result<(), Box<dyn Error>> {
 }
 
 /// Loop, wait for messages from the websocket server, and handle each.
-fn receive_loop(mut client: Client<TlsStream<TcpStream>>) -> Result<(), Box<dyn Error>> {
+fn receive_loop(mut client: Client<TlsStream<TcpStream>>) -> Result<(), anyhow::Error> {
 
-    // let redis_client = match RedisClient::open("redis://127.0.0.1") {
-    //     Ok(client) => client,
-    //     Err(e) => panic!("Could not connect to Redis with {e:?}!")
-    // };
-    // let redis_connection = redis_client.get_connection().unwrap();
+    let mut redis_conn = RedisOrderbookClient::new("redis://127.0.0.1")?;
 
     loop {
         match client.recv_message().unwrap() {
-            OwnedMessage::Text(s) => handle_received_text(s)?,
-            OwnedMessage::Binary(b) => println!("got binary"),
+            OwnedMessage::Text(s) => handle_received_text(s, &mut redis_conn)?,
+            OwnedMessage::Binary(b) => debug!("Received and ignored binary data."),
             OwnedMessage::Close(close_data) => {
-                println!("closed by server for reason: {}", close_data.unwrap().reason);
+                info!("Websocket closed by server for reason: {}", close_data.unwrap().reason);
                 break;
             },
             OwnedMessage::Ping(data) => match client.send_message(&Message::pong(data)) {
@@ -84,14 +81,14 @@ fn receive_loop(mut client: Client<TlsStream<TcpStream>>) -> Result<(), Box<dyn 
 }
 
 /// Handle text messages received from the server
-fn handle_received_text(text: String) -> Result<(), Box<dyn Error>> {
-    match serde_json::from_str::<OrderbookSnapshotMessage>(&text) {
-        Ok(snapshot) => {},
-        Err(e) => {},
-    }
+fn handle_received_text(text: String, redis_conn: &mut RedisOrderbookClient) -> Result<(), anyhow::Error> {
+    let wrapper_msg = match serde_json::from_str::<OrderbookMessage>(&text) {
+        Ok(msg) => msg,
+        Err(e) => {
+            debug!("Ignoring non-OrderbookMessage text data.");
+            return Ok(())
+        }
+    };
 
-    println!("{text}");
-    Ok(())
+    redis_conn.write(wrapper_msg.msg)
 }
-
-

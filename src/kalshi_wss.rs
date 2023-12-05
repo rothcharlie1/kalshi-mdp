@@ -1,6 +1,11 @@
+use log::debug;
+use redis::{ToRedisArgs, FromRedisValue};
+use redis_derive::{ToRedisArgs, FromRedisValue};
 use serde_json;
 use serde::{Deserialize, Serialize};
 use websocket::Message;
+
+use std::ops;
 
 
 /// Represents a message to send to the Kalshi websocket server.
@@ -116,21 +121,72 @@ pub struct UpdateSubMessage {
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct OrderbookSnapshotMessage {
+pub struct OrderbookMessage {
     #[serde(rename="type")]
     msg_type: String,
     sid: u32,
     seq: u32,
-    msg: SnapshotSubMessage
+    pub msg: OrderbookSubMessage
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct OrderbookDeltaMessage {
+#[serde(untagged)]
+pub enum OrderbookSubMessage {
+    Snapshot(Snapshot),
+    Delta(Delta)
+}
+#[derive(Serialize, Deserialize, ToRedisArgs, FromRedisValue, Debug)]
+pub struct Snapshot {
+    pub market_ticker: String,
+    pub yes: Vec<(i32, i32)>,
+    pub no: Vec<(i32, i32)>
 }
 
-#[derive(Serialize, Deserialize)]
-pub struct SnapshotSubMessage {
-    market_ticker: String,
-    yes: Vec<Vec<i32>>,
-    no: Vec<Vec<i32>>
+impl ops::Add<Delta> for Snapshot {
+    type Output = Snapshot;
+
+    /// Adds an orderbook Delta to this Snapshot
+    fn add(self, rhs: Delta) -> Self::Output {
+
+        /// Add 'delta' to the quantity at 'price' in 'levels' 
+        fn apply_delta(levels: Vec<(i32, i32)>, price: i32, delta: i32) -> Vec<(i32, i32)> {
+            let mut new = levels.clone();
+            for (idx, level) in levels.iter().enumerate() {
+                if level.0 == price {
+                    new[idx] = (price, level.1 + delta);
+                    return new;
+                }
+            }
+            new
+        }
+
+        debug!("Adding {rhs:?} to {self:?}");
+        match rhs.side {
+            Side::YES => Snapshot { 
+                market_ticker: self.market_ticker, 
+                yes: apply_delta(self.yes, rhs.price, rhs.delta), 
+                no: self.no
+            },
+            Side::NO => Snapshot { 
+                market_ticker: self.market_ticker, 
+                yes: self.yes, 
+                no: apply_delta(self.no, rhs.price, rhs.delta)
+            }
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Delta {
+    pub market_ticker: String,
+    pub price: i32,
+    pub delta: i32,
+    pub side: Side
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all = "lowercase")]
+pub enum Side {
+    YES,
+    NO
 }
