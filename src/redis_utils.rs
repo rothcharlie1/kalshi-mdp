@@ -8,7 +8,6 @@ use crate::kalshi_wss::{Snapshot, Delta};
 
 /// A wrapper for a Redis client with orderbook-specific functions.
 pub struct RedisOrderbookClient {
-    client: Client,
     conn: Connection
 }
 
@@ -20,7 +19,6 @@ impl RedisOrderbookClient {
         let conn = client.get_connection()?;
         Ok(
             RedisOrderbookClient {
-                client: client,
                 conn: conn
             }
         )
@@ -43,11 +41,11 @@ impl RedisOrderbookClient {
             .arg(ticker)
             .arg(&snap)
             .query::<Snapshot>(&mut self.conn) {
-                Ok(t) => {
+                Ok(_t) => {
                     debug!("Wrote snapshot for {} to Redis", ticker);
                     Ok(())
                 }
-                Err(e) => {
+                Err(_e) => {
                     debug!("Ignoring Redis error.");
                     Ok(())
                 }

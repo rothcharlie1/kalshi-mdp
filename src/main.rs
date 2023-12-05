@@ -1,18 +1,14 @@
 extern crate websocket;
-use kalshi_wss::KalshiClientMessageBuilder;
 use native_tls::TlsStream;
 use websocket::sync::Client;
-use websocket::{ClientBuilder, OwnedMessage, CloseData, Message};
+use websocket::{ClientBuilder, OwnedMessage, Message};
 use websocket::header::{Headers, Authorization, Bearer};
-use redis::Client as RedisClient;
-use redis::Connection;
-use std::error::Error;
 use std::net::TcpStream;
-use log::{debug, error, info};
+use log::{debug, info, trace};
 
 use crate::kalshi_wss::SubscribeSubMessage;
 use crate::kalshi_wss::KalshiClientSubMessage as SubMessage;
-use crate::kalshi_wss::{OrderbookMessage, Delta, Snapshot};
+use crate::kalshi_wss::OrderbookMessage;
 use crate::redis_utils::RedisOrderbookClient;
 
 mod kalshi_http;
@@ -65,16 +61,16 @@ fn receive_loop(mut client: Client<TlsStream<TcpStream>>) -> Result<(), anyhow::
     loop {
         match client.recv_message().unwrap() {
             OwnedMessage::Text(s) => handle_received_text(s, &mut redis_conn)?,
-            OwnedMessage::Binary(b) => debug!("Received and ignored binary data."),
+            OwnedMessage::Binary(_b) => debug!("Received and ignored binary data."),
             OwnedMessage::Close(close_data) => {
                 info!("Websocket closed by server for reason: {}", close_data.unwrap().reason);
                 break;
             },
             OwnedMessage::Ping(data) => match client.send_message(&Message::pong(data)) {
-                Ok(()) => (),
+                Ok(()) => trace!("Sent pong in response to ping"),
                 Err(e) => panic!("Failed to send pong with error {e:?}") 
             },
-            OwnedMessage::Pong(data) => {} // as a client, we do not expect to receive pongs
+            OwnedMessage::Pong(_data) => {} // as a client, we do not expect to receive pongs
         }
     }
     Ok(())
@@ -84,7 +80,7 @@ fn receive_loop(mut client: Client<TlsStream<TcpStream>>) -> Result<(), anyhow::
 fn handle_received_text(text: String, redis_conn: &mut RedisOrderbookClient) -> Result<(), anyhow::Error> {
     let wrapper_msg = match serde_json::from_str::<OrderbookMessage>(&text) {
         Ok(msg) => msg,
-        Err(e) => {
+        Err(_e) => {
             debug!("Ignoring non-OrderbookMessage text data.");
             return Ok(())
         }

@@ -1,5 +1,4 @@
 use log::debug;
-use redis::{ToRedisArgs, FromRedisValue};
 use redis_derive::{ToRedisArgs, FromRedisValue};
 use serde_json;
 use serde::{Deserialize, Serialize};
@@ -46,7 +45,7 @@ impl KalshiClientMessageBuilder {
     /// Set the SubMessage for the next message to build.
     pub fn content(&mut self, submsg: KalshiClientSubMessage) -> &mut Self {
         match submsg {
-            KalshiClientSubMessage::SubscribeSubMessage(ref msg) => {
+            KalshiClientSubMessage::SubscribeSubMessage(ref _msg) => {
                 self.cmd = Some("subscribe".into());
                 self.params = Some(submsg);
             },
@@ -89,13 +88,6 @@ pub struct SubscribeSubMessage {
 
 impl SubscribeSubMessage {
 
-    pub fn new(tickers: Vec<String>, channels: Vec<String>) -> SubscribeSubMessage {
-        SubscribeSubMessage {
-            channels: channels, 
-            market_tickers: tickers
-        }
-    }
-
     /// Construct a new subscription message with the default 'orderbook_delta' 
     /// and 'ticker' channels.
     pub fn new_default(tickers: Vec<String>) -> SubscribeSubMessage {
@@ -134,6 +126,21 @@ pub struct OrderbookMessage {
 pub enum OrderbookSubMessage {
     Snapshot(Snapshot),
     Delta(Delta)
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Delta {
+    pub market_ticker: String,
+    pub price: i32,
+    pub delta: i32,
+    pub side: Side
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all = "lowercase")]
+pub enum Side {
+    YES,
+    NO
 }
 #[derive(Serialize, Deserialize, ToRedisArgs, FromRedisValue, Debug)]
 pub struct Snapshot {
@@ -174,19 +181,4 @@ impl ops::Add<Delta> for Snapshot {
             }
         }
     }
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct Delta {
-    pub market_ticker: String,
-    pub price: i32,
-    pub delta: i32,
-    pub side: Side
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-#[serde(rename_all = "lowercase")]
-pub enum Side {
-    YES,
-    NO
 }
