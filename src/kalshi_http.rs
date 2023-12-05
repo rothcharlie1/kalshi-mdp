@@ -3,18 +3,15 @@ use serde_json;
 use serde::{Deserialize, Serialize};
 use std::error::Error;
 
-/*
-Represents the response from Kalshi to a login request.
-*/
+
+/// Represents the response from Kalshi to a login request.
 #[derive(Serialize, Deserialize)]
 pub struct LoginResponse {
     member_id: String,
     pub token: String
 }
 
-/*
-Represents the body of data required to login to Kalshi.
-*/
+/// Represents the body of data required to login to Kalshi.
 #[derive(Serialize, Deserialize)]
 pub struct LoginBody {
     email: String,
@@ -22,14 +19,14 @@ pub struct LoginBody {
 }
 
 impl LoginBody {
+    /// Construct a new LoginBody
     pub fn new(email: String, password: String) -> LoginBody {
         LoginBody { email: email, password: password }
     }
 }
 
-/*
-Logs in to Kalshi via HTTP and returns the response from Kalshi as a LoginResponse.
-*/
+
+/// Logs in to Kalshi via HTTP and returns the response from Kalshi as a LoginResponse.
 pub async fn login(url: &str, body: LoginBody) -> Result<LoginResponse, Box<dyn Error>>  {
     let client = reqwest::Client::new();
     let response_text =  client.post(url)
