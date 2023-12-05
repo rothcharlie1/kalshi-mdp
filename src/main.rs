@@ -18,7 +18,7 @@ mod redis_utils;
 
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
-    env_logger::init();
+    env_logger::Builder::from_default_env().format_timestamp_micros().init();
 
     let token = kalshi_http::login(
         constants::PROD_API, 
@@ -60,7 +60,10 @@ fn receive_loop(mut client: Client<TlsStream<TcpStream>>) -> Result<(), anyhow::
 
     loop {
         match client.recv_message().unwrap() {
-            OwnedMessage::Text(s) => handle_received_text(s, &mut redis_conn)?,
+            OwnedMessage::Text(s) => {
+                trace!("Handling incoming text");
+                handle_received_text(s, &mut redis_conn)?
+            },
             OwnedMessage::Binary(_b) => debug!("Received and ignored binary data."),
             OwnedMessage::Close(close_data) => {
                 info!("Websocket closed by server for reason: {}", close_data.unwrap().reason);

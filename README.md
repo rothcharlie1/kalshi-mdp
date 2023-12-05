@@ -1,7 +1,7 @@
 ## Kalshi Market Data Platform
 
-A hot-configurable Redis sink for Kalshi Websockets API.
+A hot-configurable Redis sink for the Kalshi Websockets API. Achieves sub-millisecond wire-to-wire writes.
 
 ### Requirements
-A local or remote Redis instance configured in the YAML.
-A Kalshi account to connect with, configured in the YAML.
+- A Redis server running locally
+- A Kalshi account to connect with, configured in ```src/constants.rs```
