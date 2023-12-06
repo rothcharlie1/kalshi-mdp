@@ -43,6 +43,7 @@ The developers of kalshi-mdp feel they should thank the developers of the follow
 
 The developers welcome pull requests (and will likely contribute themselves) for the following useful features:
 
+- Filter out zero-quantity book entries
 - A TCP server to accept live subscription and unsubscription requests
 - Improved post-build configuration via YAML, etc.
 - Support for alternative storage or message formats, like Kafka
