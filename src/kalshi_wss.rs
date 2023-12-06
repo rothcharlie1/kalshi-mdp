@@ -6,7 +6,6 @@ use websocket::Message;
 
 use std::ops;
 
-
 /// Represents a message to send to the Kalshi websocket server.
 #[derive(Serialize, Deserialize)]
 pub struct KalshiClientMessage {
@@ -112,6 +111,7 @@ pub struct UpdateSubMessage {
     action: String
 }
 
+/// A message on the orderbook_delta channel
 #[derive(Serialize, Deserialize)]
 pub struct OrderbookMessage {
     #[serde(rename="type")]
@@ -128,6 +128,8 @@ pub enum OrderbookSubMessage {
     Delta(Delta)
 }
 
+/// A delta message, i.e. a message containing a change in quantity 
+/// offered at a specific price level
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Delta {
     pub market_ticker: String,
@@ -142,6 +144,8 @@ pub enum Side {
     YES,
     NO
 }
+
+/// A snapshot message, i.e. a view of the full book on a ticker
 #[derive(Serialize, Deserialize, ToRedisArgs, FromRedisValue, Debug)]
 pub struct Snapshot {
     pub market_ticker: String,
@@ -149,6 +153,7 @@ pub struct Snapshot {
     pub no: Vec<(i32, i32)>
 }
 
+/// Overloads '+' for Snapshot + Delta
 impl ops::Add<Delta> for Snapshot {
     type Output = Snapshot;
 

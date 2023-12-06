@@ -1,17 +1,15 @@
 use reqwest;
 use serde_json;
 use serde::{Deserialize, Serialize};
-use std::error::Error;
 
-
-/// Represents the response from Kalshi to a login request.
+/// The response from Kalshi to a login request.
 #[derive(Serialize, Deserialize)]
 pub struct LoginResponse {
     member_id: String,
     pub token: String
 }
 
-/// Represents the body of data required to login to Kalshi.
+/// The body of data required to login to Kalshi.
 #[derive(Serialize, Deserialize)]
 pub struct LoginBody {
     email: String,

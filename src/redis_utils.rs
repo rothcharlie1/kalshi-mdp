@@ -24,6 +24,7 @@ impl RedisOrderbookClient {
         )
     }
 
+    /// Retrieve the latest snapshot on 'ticker'
     pub fn read(&mut self, ticker: &str) -> Result<Snapshot, anyhow::Error> {
         Ok(redis::cmd("HGETALL")
             .arg(ticker)
