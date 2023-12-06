@@ -25,9 +25,8 @@ impl LoginBody {
     }
 }
 
-
 /// Logs in to Kalshi via HTTP and returns the response from Kalshi as a LoginResponse.
-pub async fn login(url: &str, body: LoginBody) -> Result<LoginResponse, Box<dyn Error>>  {
+pub async fn login(url: &str, body: LoginBody) -> Result<LoginResponse, anyhow::Error>  {
     let client = reqwest::Client::new();
     let response_text =  client.post(url)
         .body(serde_json::to_string(&body).unwrap())

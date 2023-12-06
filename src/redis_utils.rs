@@ -44,7 +44,7 @@ impl RedisOrderbookClient {
                 Ok(_t) => {
                     debug!("Wrote snapshot for {} to Redis", ticker);
                     Ok(())
-                }
+                },
                 Err(_e) => {
                     debug!("Ignoring Redis error.");
                     Ok(())
