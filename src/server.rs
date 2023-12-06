@@ -4,6 +4,7 @@ use websocket::sync::Client;
 use websocket::{ClientBuilder, OwnedMessage, Message};
 use websocket::header::{Headers, Authorization, Bearer};
 use std::net::TcpStream;
+use std::env;
 use log::{debug, info, trace};
 
 use crate::kalshi_wss::SubscribeSubMessage;
@@ -19,6 +20,8 @@ mod redis_utils;
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
     env_logger::Builder::from_default_env().format_timestamp_micros().init();
+
+    let tickers: Vec<String> = env::args().collect();
 
     let token = kalshi_http::login(
         constants::PROD_API, 
@@ -41,7 +44,7 @@ async fn main() -> Result<(), anyhow::Error> {
         .unwrap();
 
     let mut msg_builder = kalshi_wss::KalshiClientMessageBuilder::new();
-    let sub_sub_msg = SubscribeSubMessage::new_default(vec!["INXDU-23DEC05-T4574.99".into()]);
+    let sub_sub_msg = SubscribeSubMessage::new_default(tickers[1..].to_vec());
 
     let init_sub_msg = msg_builder.content(SubMessage::SubscribeSubMessage(sub_sub_msg))
         .build();
