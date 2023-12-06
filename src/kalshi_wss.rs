@@ -164,6 +164,10 @@ impl ops::Add<Delta> for Snapshot {
                     return new;
                 }
             }
+
+            // push and re-sort if price is not yet present
+            new.push((price, delta));
+            new.sort_by(|a, b| a.1.cmp(&b.1));
             new
         }
 

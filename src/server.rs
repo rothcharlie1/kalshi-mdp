@@ -1,3 +1,5 @@
+#[allow(unused_imports)]
+
 extern crate websocket;
 use native_tls::TlsStream;
 use websocket::sync::Client;

@@ -1,3 +1,5 @@
+#[allow(unused_imports)]
+
 use kalshi_wss::Snapshot;
 use redis_utils::RedisOrderbookClient;
 
