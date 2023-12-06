@@ -24,6 +24,12 @@ impl RedisOrderbookClient {
         )
     }
 
+    pub fn read(&mut self, ticker: &str) -> Result<Snapshot, anyhow::Error> {
+        Ok(redis::cmd("HGETALL")
+            .arg(ticker)
+            .query::<Snapshot>(&mut self.conn)?)
+    }
+
     /// Delegating writing of snapshots or deltas to the correct functionality
     pub fn write(&mut self, msg: OrderbookSubMessage) -> Result<(), anyhow::Error> {
         match msg {

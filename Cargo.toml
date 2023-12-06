@@ -3,7 +3,13 @@ name = "kalshi-mdp"
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[[bin]]
+name = "kalshi-mdp-server"
+path = "src/server.rs"
+
+[[bin]]
+name = "kalshi-mdp-client"
+path = "src/client.rs"
 
 [dependencies]
 redis = { version = "0.23.0-beta.1", features = ["json"] }
