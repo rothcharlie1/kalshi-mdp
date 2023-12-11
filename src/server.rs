@@ -67,6 +67,7 @@ fn receive_loop(mut client: Client<TlsStream<TcpStream>>) -> Result<(), anyhow::
         match client.recv_message().unwrap() {
             OwnedMessage::Text(s) => {
                 trace!("Handling incoming text");
+                trace!("{s}");
                 handle_received_text(s, &mut redis_conn)?
             },
             OwnedMessage::Binary(_b) => debug!("Received and ignored binary data."),
@@ -94,5 +95,11 @@ fn handle_received_text(text: String, redis_conn: &mut RedisOrderbookClient) -> 
         }
     };
 
-    redis_conn.write(wrapper_msg.msg)
+    match redis_conn.write(wrapper_msg.msg) {
+        Ok(()) => Ok(()),
+        Err(_e) => {
+            debug!("Failed to write to Redis for unknown reason");
+            Ok(())
+        }
+    }
 }
