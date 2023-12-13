@@ -74,7 +74,7 @@ impl RedisClient {
 
     /// TODO: Write a trade to Redis
     fn write_trade(&mut self, trade: Trade) -> Result<(), anyhow::Error> {
-        Err(anyhow!("write_trade method not implemented"))
+        debug!("Logging Trade: {:?}", trade);
     }
 
     /// Delete Redis entry under the provided key
