@@ -1,6 +1,7 @@
 #[allow(unused_imports)]
 
 extern crate websocket;
+use clap::{App, Arg};
 use native_tls::TlsStream;
 use websocket::sync::Client;
 use websocket::{ClientBuilder, OwnedMessage, Message};
@@ -11,7 +12,7 @@ use log::{debug, info, trace};
 
 use crate::kalshi_wss::SubscribeSubMessage;
 use crate::kalshi_wss::KalshiClientSubMessage as SubMessage;
-use crate::kalshi_wss::OrderbookMessage;
+use crate::kalshi_wss::MarketDataMessage;
 use crate::redis_utils::RedisClient;
 
 mod kalshi_http;
@@ -23,7 +24,27 @@ mod redis_utils;
 async fn main() -> Result<(), anyhow::Error> {
     env_logger::Builder::from_default_env().format_timestamp_micros().init();
 
-    let tickers: Vec<String> = env::args().collect();
+    let matches = App::new("Kalshi MDP Server")
+        .version("1.1")
+        .about("Subscribe to market data on the Kalshi websocket & relay to local redis instance")
+        .arg(
+            Arg::new("snapshots")
+                .long("snapshots")
+                .help("List of tickers to subscribe to for orderbook snapshots")
+                .takes_value(true)
+                .multiple_values(true),
+        )
+        .arg(
+            Arg::new("trades")
+                .long("trades")
+                .help("List of tickers to subscribe to for trades")
+                .takes_value(true)
+                .multiple_values(true),
+        )
+        .get_matches();
+
+    let snapshot_tickers = matches.values_of("snapshots").unwrap_or_default().collect::<Vec<_>>();
+    let trade_tickers = matches.values_of("trades").unwrap_or_default().collect::<Vec<_>>();
 
     let token = kalshi_http::login(
         constants::PROD_API, 
@@ -46,14 +67,26 @@ async fn main() -> Result<(), anyhow::Error> {
         .unwrap();
 
     let mut msg_builder = kalshi_wss::KalshiClientMessageBuilder::new();
-    let sub_sub_msg = SubscribeSubMessage::new_default(tickers[1..].to_vec());
 
-    let init_sub_msg = msg_builder.content(SubMessage::SubscribeSubMessage(sub_sub_msg))
-        .build();
+    // Subscribe to snapshots on user-specified tickers
+    if !snapshot_tickers.is_empty() {
+        let snapshot_sub_msg = SubscribeSubMessage::new_default(snapshot_tickers);
+        let init_sub_msg = msg_builder.content(SubMessage::SubscribeSubMessage(snapshot_sub_msg))
+            .build();
 
-    info!("Sending initial subscription message: {:?}", serde_json::to_string(&init_sub_msg).unwrap());
+        info!("Sending initial snapshot subscription message: {:?}", serde_json::to_string(&init_sub_msg).unwrap());
+        client.send_message(&init_sub_msg.to_websocket_message())?;
+    }
 
-    client.send_message(&init_sub_msg.to_websocket_message())?;
+    // Subscribe to trades on user-specified tickers
+    if !trade_tickers.is_empty() {
+        let trade_sub_msg = SubscribeSubMessage::new_trades(trade_tickers);
+        let init_sub_msg = msg_builder.content(SubMessage::SubscribeSubMessage(trade_sub_msg))
+            .build();
+
+        info!("Sending initial trades subscription message: {:?}", serde_json::to_string(&init_sub_msg).unwrap());
+        client.send_message(&init_sub_msg.to_websocket_message())?;
+    }
 
     receive_loop(client)
 }
@@ -87,10 +120,10 @@ fn receive_loop(mut client: Client<TlsStream<TcpStream>>) -> Result<(), anyhow::
 
 /// Handle text messages received from the server
 fn handle_received_text(text: String, redis_conn: &mut RedisClient) -> Result<(), anyhow::Error> {
-    let wrapper_msg = match serde_json::from_str::<OrderbookMessage>(&text) {
+    let wrapper_msg = match serde_json::from_str::<MarketDataMessage>(&text) {
         Ok(msg) => msg,
         Err(_e) => {
-            debug!("Ignoring non-OrderbookMessage text data.");
+            debug!("Ignoring non-MarketDataMessage text data.");
             return Ok(())
         }
     };

@@ -3,7 +3,7 @@ use redis::Client;
 use redis::Commands;
 use redis::Connection;
 
-use crate::kalshi_wss::OrderbookSubMessage;
+use crate::kalshi_wss::MarketDataSubMessage;
 use crate::kalshi_wss::{Snapshot, Delta, Trade};
 
 /// A wrapper for a Redis client that supports orderbook snapshot and trade retrieval
@@ -37,11 +37,11 @@ impl RedisClient {
     }
 
     /// Delegating writing of snapshots or deltas to the correct functionality
-    pub fn write(&mut self, msg: OrderbookSubMessage) -> Result<(), anyhow::Error> {
+    pub fn write(&mut self, msg: MarketDataSubMessage) -> Result<(), anyhow::Error> {
         match msg {
-            OrderbookSubMessage::Delta(d) => self.write_delta(d),
-            OrderbookSubMessage::Snapshot(s) => self.write_snapshot(s),
-            OrderbookSubMessage::Trade(t) => self.write_trade(t)
+            MarketDataSubMessage::Delta(d) => self.write_delta(d),
+            MarketDataSubMessage::Snapshot(s) => self.write_snapshot(s),
+            MarketDataSubMessage::Trade(t) => self.write_trade(t)
         }
     }
 
