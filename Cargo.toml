@@ -24,4 +24,4 @@ websocket = "0.26"
 log = "0.4.20"
 anyhow = "1.0.75"
 redis-derive = "0.1.7"
-
+clap = "3.1.6"
