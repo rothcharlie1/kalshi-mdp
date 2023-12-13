@@ -71,7 +71,7 @@ async fn main() -> Result<(), anyhow::Error> {
 
     // Subscribe to snapshots on user-specified tickers
     if !snapshot_tickers.is_empty() {
-        let snapshot_sub_msg = SubscribeSubMessage::new_default(snapshot_tickers);
+        let snapshot_sub_msg = SubscribeSubMessage::new_default(snapshot_tickers[1..].to_vec());
         let init_sub_msg = msg_builder.content(SubMessage::SubscribeSubMessage(snapshot_sub_msg))
             .build();
 
@@ -81,7 +81,7 @@ async fn main() -> Result<(), anyhow::Error> {
 
     // Subscribe to trades on user-specified tickers
     if !trade_tickers.is_empty() {
-        let trade_sub_msg = SubscribeSubMessage::new_trades(trade_tickers);
+        let trade_sub_msg = SubscribeSubMessage::new_trades(trade_tickers[1..].to_vec());
         let init_sub_msg = msg_builder.content(SubMessage::SubscribeSubMessage(trade_sub_msg))
             .build();
 

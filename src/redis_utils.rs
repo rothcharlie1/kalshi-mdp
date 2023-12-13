@@ -2,6 +2,7 @@ use log::debug;
 use redis::Client;
 use redis::Commands;
 use redis::Connection;
+use anyhow::anyhow;
 
 use crate::kalshi_wss::MarketDataSubMessage;
 use crate::kalshi_wss::{Snapshot, Delta, Trade};

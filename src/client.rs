@@ -28,7 +28,7 @@ fn main() -> Result<(), anyhow::Error> {
         let snap: Snapshot = redis_client.read_snapshot(&ticker).expect("No snapshot data found for ticker.");
         println!("{snap:?}");
     } else if mode == "--trade" {
-        let trade: Trade = redis_client.read_trades(&ticker).expect("No trade data found for ticker.");
+        let trades: Vec<Trade> = redis_client.read_trades(&ticker).expect("No trade data found for ticker.");
         println!("{trade:?}");
     } else {
         println!("Invalid type provided. Please select either --snapshot or --trade.");
