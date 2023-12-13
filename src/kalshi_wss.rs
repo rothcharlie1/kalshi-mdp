@@ -3,6 +3,7 @@ use redis_derive::{ToRedisArgs, FromRedisValue};
 use serde_json;
 use serde::{Deserialize, Serialize};
 use websocket::Message;
+use anyhow::anyhow;
 
 use std::ops;
 
@@ -148,7 +149,7 @@ pub struct Delta {
     pub side: Side
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, ToRedisArgs, FromRedisValue, Debug)]
 #[serde(rename_all = "lowercase")]
 pub enum Side {
     YES,
@@ -156,7 +157,7 @@ pub enum Side {
 }
 
 /// A snapshot message, i.e. a view of the full book on a ticker
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, ToRedisArgs, FromRedisValue, Debug)]
 pub struct Snapshot {
     pub market_ticker: String,
     pub yes: Vec<(i32, i32)>,
@@ -165,7 +166,7 @@ pub struct Snapshot {
 
 /// A trade message, i.e. a message containing a trade that has
 /// occurred on a ticker
-#[derive(Serialize, Deserialize, ToRedisArgs, FromRedisValue, Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Trade {
     pub market_ticker: String,
     pub yes_price: i32,
