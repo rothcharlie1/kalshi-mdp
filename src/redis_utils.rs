@@ -75,6 +75,7 @@ impl RedisClient {
     /// TODO: Write a trade to Redis
     fn write_trade(&mut self, trade: Trade) -> Result<(), anyhow::Error> {
         debug!("Logging Trade: {:?}", trade);
+        Ok(());
     }
 
     /// Delete Redis entry under the provided key

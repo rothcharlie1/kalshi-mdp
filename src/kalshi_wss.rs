@@ -156,7 +156,7 @@ pub enum Side {
 }
 
 /// A snapshot message, i.e. a view of the full book on a ticker
-#[derive(Serialize, Deserialize, ToRedisArgs, FromRedisValue, Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Snapshot {
     pub market_ticker: String,
     pub yes: Vec<(i32, i32)>,

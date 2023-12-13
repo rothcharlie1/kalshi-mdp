@@ -9,6 +9,7 @@ use websocket::header::{Headers, Authorization, Bearer};
 use std::net::TcpStream;
 use std::env;
 use log::{debug, info, trace};
+use anyhow::anyhow;
 
 use crate::kalshi_wss::SubscribeSubMessage;
 use crate::kalshi_wss::KalshiClientSubMessage as SubMessage;

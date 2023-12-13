@@ -11,7 +11,7 @@ pub mod constants;
 
 fn main() -> Result<(), anyhow::Error> {
 
-    let args = Vec<String> = std::env::args().collect();
+    let args: Vec<String> = std::env::args().collect();
 
     /// Check if user has provided the correct number of arguments
     if args.len() != 3 {
