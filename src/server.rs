@@ -12,7 +12,7 @@ use log::{debug, info, trace};
 use crate::kalshi_wss::SubscribeSubMessage;
 use crate::kalshi_wss::KalshiClientSubMessage as SubMessage;
 use crate::kalshi_wss::OrderbookMessage;
-use crate::redis_utils::RedisOrderbookClient;
+use crate::redis_utils::RedisClient;
 
 mod kalshi_http;
 mod constants;
@@ -61,7 +61,7 @@ async fn main() -> Result<(), anyhow::Error> {
 /// Loop, wait for messages from the websocket server, and handle each.
 fn receive_loop(mut client: Client<TlsStream<TcpStream>>) -> Result<(), anyhow::Error> {
 
-    let mut redis_conn = RedisOrderbookClient::new("redis://127.0.0.1")?;
+    let mut redis_conn = RedisClient::new("redis://127.0.0.1")?;
 
     loop {
         match client.recv_message().unwrap() {
@@ -86,7 +86,7 @@ fn receive_loop(mut client: Client<TlsStream<TcpStream>>) -> Result<(), anyhow::
 }
 
 /// Handle text messages received from the server
-fn handle_received_text(text: String, redis_conn: &mut RedisOrderbookClient) -> Result<(), anyhow::Error> {
+fn handle_received_text(text: String, redis_conn: &mut RedisClient) -> Result<(), anyhow::Error> {
     let wrapper_msg = match serde_json::from_str::<OrderbookMessage>(&text) {
         Ok(msg) => msg,
         Err(_e) => {

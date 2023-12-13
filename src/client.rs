@@ -2,7 +2,7 @@
 
 use kalshi_wss::Snapshot;
 use kalshi_wss::Trade;
-use redis_utils::RedisOrderbookClient;
+use redis_utils::RedisClient;
 use clap::{App, Arg};
 
 pub mod redis_utils;
@@ -22,7 +22,7 @@ fn main() -> Result<(), anyhow::Error> {
     let mode = &args[1];
     let ticker = &args[2];
 
-    let mut redis_client = RedisOrderbookClient::new("redis://127.0.0.1")?;
+    let mut redis_client = RedisClient::new("redis://127.0.0.1")?;
 
     if mode == "--snapshot" {
         let snap: Snapshot = redis_client.read_snapshot(&ticker).expect("No snapshot data found for ticker.");
