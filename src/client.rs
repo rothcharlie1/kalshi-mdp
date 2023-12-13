@@ -29,7 +29,7 @@ fn main() -> Result<(), anyhow::Error> {
         println!("{snap:?}");
     } else if mode == "--trade" {
         let trades: Vec<Trade> = redis_client.read_trades(&ticker).expect("No trade data found for ticker.");
-        println!("{trade:?}");
+        println!("{trades:?}");
     } else {
         println!("Invalid type provided. Please select either --snapshot or --trade.");
     }
