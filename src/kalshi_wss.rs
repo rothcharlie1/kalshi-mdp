@@ -3,6 +3,7 @@ use redis_derive::{ToRedisArgs, FromRedisValue};
 use serde_json;
 use serde::{Deserialize, Serialize};
 use websocket::Message;
+use anyhow::anyhow;
 
 use std::ops;
 
@@ -95,6 +96,15 @@ impl SubscribeSubMessage {
             market_tickers: tickers 
         }
     }
+
+    /// Construct a new subscription message for trades on the given 'ticker'
+    /// channels.
+    pub fn new_trades(tickers: Vec<String>) -> SubscribeSubMessage {
+        SubscribeSubMessage { 
+            channels: vec!["trade".into(), "ticker".into()], 
+            market_tickers: tickers 
+        }
+    }
 }
 
 /// A sub-message representing a request to unsubscribe a previous subscription.
@@ -111,21 +121,22 @@ pub struct UpdateSubMessage {
     action: String
 }
 
-/// A message on the orderbook_delta channel
+/// A kalshi market data message
 #[derive(Serialize, Deserialize)]
-pub struct OrderbookMessage {
+pub struct MarketDataMessage {
     #[serde(rename="type")]
     msg_type: String,
     sid: u32,
     seq: u32,
-    pub msg: OrderbookSubMessage
+    pub msg: MarketDataSubMessage
 }
 
 #[derive(Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum OrderbookSubMessage {
+pub enum MarketDataSubMessage {
     Snapshot(Snapshot),
-    Delta(Delta)
+    Delta(Delta),
+    Trade(Trade)
 }
 
 /// A delta message, i.e. a message containing a change in quantity 
@@ -138,7 +149,7 @@ pub struct Delta {
     pub side: Side
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, ToRedisArgs, FromRedisValue, Debug)]
 #[serde(rename_all = "lowercase")]
 pub enum Side {
     YES,
@@ -151,6 +162,18 @@ pub struct Snapshot {
     pub market_ticker: String,
     pub yes: Vec<(i32, i32)>,
     pub no: Vec<(i32, i32)>
+}
+
+/// A trade message, i.e. a message containing a trade that has
+/// occurred on a ticker
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Trade {
+    pub market_ticker: String,
+    pub yes_price: i32,
+    pub no_price: i32,
+    pub count: i32,
+    pub taker_side: Side,
+    pub ts: i64
 }
 
 /// Overloads '+' for Snapshot + Delta

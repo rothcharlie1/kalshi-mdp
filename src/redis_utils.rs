@@ -2,40 +2,47 @@ use log::debug;
 use redis::Client;
 use redis::Commands;
 use redis::Connection;
+use anyhow::anyhow;
 
-use crate::kalshi_wss::OrderbookSubMessage;
-use crate::kalshi_wss::{Snapshot, Delta};
+use crate::kalshi_wss::MarketDataSubMessage;
+use crate::kalshi_wss::{Snapshot, Delta, Trade};
 
-/// A wrapper for a Redis client with orderbook-specific functions.
-pub struct RedisOrderbookClient {
+/// A wrapper for a Redis client that supports orderbook snapshot and trade retrieval
+pub struct RedisClient {
     conn: Connection
 }
 
-impl RedisOrderbookClient {
+impl RedisClient {
 
     /// Construct a new client by connecting to Redis at the provided host
-    pub fn new(host: &str) -> Result<RedisOrderbookClient, anyhow::Error> {
+    pub fn new(host: &str) -> Result<RedisClient, anyhow::Error> {
         let client = Client::open(host)?;
         let conn = client.get_connection()?;
         Ok(
-            RedisOrderbookClient {
+            RedisClient {
                 conn: conn
             }
         )
     }
 
     /// Retrieve the latest snapshot on 'ticker'
-    pub fn read(&mut self, ticker: &str) -> Result<Snapshot, anyhow::Error> {
+    pub fn read_snapshot(&mut self, ticker: &str) -> Result<Snapshot, anyhow::Error> {
         Ok(redis::cmd("HGETALL")
             .arg(ticker)
             .query::<Snapshot>(&mut self.conn)?)
     }
 
+    /// TODO: Retrieve the latest trades on 'ticker'
+    pub fn read_trades(&mut self, ticker: &str) -> Result<Vec<Trade>, anyhow::Error> {
+        Err(anyhow!("read_trades method not implemented"))
+    }
+
     /// Delegating writing of snapshots or deltas to the correct functionality
-    pub fn write(&mut self, msg: OrderbookSubMessage) -> Result<(), anyhow::Error> {
+    pub fn write(&mut self, msg: MarketDataSubMessage) -> Result<(), anyhow::Error> {
         match msg {
-            OrderbookSubMessage::Delta(d) => self.write_delta(d),
-            OrderbookSubMessage::Snapshot(s) => self.write_snapshot(s)
+            MarketDataSubMessage::Delta(d) => self.write_delta(d),
+            MarketDataSubMessage::Snapshot(s) => self.write_snapshot(s),
+            MarketDataSubMessage::Trade(t) => self.write_trade(t)
         }
     }
 
@@ -64,6 +71,12 @@ impl RedisOrderbookClient {
         let curr_snapshot: Snapshot = self.conn.hgetall(&delta.market_ticker)?;
         let next_snapshot: Snapshot = curr_snapshot + delta;
         self.write_snapshot(next_snapshot)
+    }
+
+    /// TODO: Write a trade to Redis
+    fn write_trade(&mut self, trade: Trade) -> Result<(), anyhow::Error> {
+        debug!("Logging Trade: {:?}", trade);
+        Ok(())
     }
 
     /// Delete Redis entry under the provided key
