@@ -4,8 +4,7 @@ use redis::Commands;
 use redis::Connection;
 use anyhow::anyhow;
 
-use crate::kalshi_wss::MarketDataSubMessage;
-use crate::kalshi_wss::{Snapshot, Delta, Trade};
+use crate::messages::kalshi::{MarketDataSubMessage, Snapshot, Delta, Trade, SetTimestamp};
 
 /// A wrapper for a Redis client that supports orderbook snapshot and trade retrieval
 pub struct RedisClient {
@@ -49,11 +48,12 @@ impl RedisClient {
     /// Write an orderbook snapshot to Redis
     fn write_snapshot(&mut self, snap: Snapshot) -> Result<(), anyhow::Error> {
         let ticker: &str = &snap.market_ticker.clone();
+        let to_write = snap.set_timestamp();
 
         self.clear_key(ticker);
         match redis::cmd("HSET")
             .arg(ticker)
-            .arg(&snap)
+            .arg(&to_write)
             .query::<Snapshot>(&mut self.conn) {
                 Ok(_t) => {
                     debug!("Wrote snapshot for {} to Redis", ticker);
@@ -69,12 +69,13 @@ impl RedisClient {
     /// Retrieve an existing snapshot, apply the delta, and rewrite to Redis
     fn write_delta(&mut self, delta: Delta) -> Result<(), anyhow::Error> {
         let curr_snapshot: Snapshot = self.conn.hgetall(&delta.market_ticker)?;
-        let next_snapshot: Snapshot = curr_snapshot + delta;
+        let next_snapshot: Snapshot = curr_snapshot + delta.set_timestamp();
         self.write_snapshot(next_snapshot)
     }
 
     /// TODO: Write a trade to Redis
     fn write_trade(&mut self, trade: Trade) -> Result<(), anyhow::Error> {
+        let trade = trade.set_timestamp();
         debug!("Logging Trade: {:?}", trade);
         Ok(())
     }
