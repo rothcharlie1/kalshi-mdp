@@ -4,8 +4,9 @@ use serde_json;
 use serde::{Deserialize, Serialize};
 use websocket::Message;
 use anyhow::anyhow;
-
 use std::ops;
+
+use kalshi_mdp_derive::SetTimestamp;
 
 /// Represents a message to send to the Kalshi websocket server.
 #[derive(Serialize, Deserialize)]
@@ -90,7 +91,7 @@ impl SubscribeSubMessage {
 
     /// Construct a new subscription message with the default 'orderbook_delta' 
     /// and 'ticker' channels.
-    pub fn new_default(tickers: Vec<String>) -> SubscribeSubMessage {
+    pub fn new_deltas(tickers: Vec<String>) -> SubscribeSubMessage {
         SubscribeSubMessage { 
             channels: vec!["orderbook_delta".into(), "ticker".into()], 
             market_tickers: tickers 
@@ -104,6 +105,12 @@ impl SubscribeSubMessage {
             channels: vec!["trade".into(), "ticker".into()], 
             market_tickers: tickers 
         }
+    }
+
+    pub fn new_snapshot_and_trades((snaps, trades): (Vec<String>, Vec<String>)) -> Vec<SubscribeSubMessage> {
+        let snapshot_sub = SubscribeSubMessage::new_deltas(snaps);
+        let trade_sub = SubscribeSubMessage::new_trades(trades);
+        vec![snapshot_sub, trade_sub]
     }
 }
 
@@ -139,17 +146,22 @@ pub enum MarketDataSubMessage {
     Trade(Trade)
 }
 
+pub trait SetTimestamp {
+    fn set_timestamp(&self) -> Self;
+}
+
 /// A delta message, i.e. a message containing a change in quantity 
 /// offered at a specific price level
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone, SetTimestamp)]
 pub struct Delta {
     pub market_ticker: String,
+    pub ts: Option<u64>,
     pub price: i32,
     pub delta: i32,
     pub side: Side
 }
 
-#[derive(Serialize, Deserialize, ToRedisArgs, FromRedisValue, Debug)]
+#[derive(Serialize, Deserialize, ToRedisArgs, FromRedisValue, Debug, Clone)]
 #[serde(rename_all = "lowercase")]
 pub enum Side {
     YES,
@@ -157,23 +169,24 @@ pub enum Side {
 }
 
 /// A snapshot message, i.e. a view of the full book on a ticker
-#[derive(Serialize, Deserialize, ToRedisArgs, FromRedisValue, Debug)]
+#[derive(Serialize, Deserialize, ToRedisArgs, FromRedisValue, Debug, Clone, SetTimestamp)]
 pub struct Snapshot {
     pub market_ticker: String,
+    pub ts: Option<u64>,
     pub yes: Vec<(i32, i32)>,
-    pub no: Vec<(i32, i32)>
+    pub no: Vec<(i32, i32)>,
 }
 
 /// A trade message, i.e. a message containing a trade that has
 /// occurred on a ticker
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone, SetTimestamp)]
 pub struct Trade {
     pub market_ticker: String,
+    pub ts: Option<u64>,
     pub yes_price: i32,
     pub no_price: i32,
     pub count: i32,
-    pub taker_side: Side,
-    pub ts: i64
+    pub taker_side: Side
 }
 
 /// Overloads '+' for Snapshot + Delta
@@ -204,12 +217,14 @@ impl ops::Add<Delta> for Snapshot {
             Side::YES => Snapshot { 
                 market_ticker: self.market_ticker, 
                 yes: apply_delta(self.yes, rhs.price, rhs.delta), 
-                no: self.no
+                no: self.no,
+                ts: rhs.ts // change snapshot's ts to delta's ts
             },
             Side::NO => Snapshot { 
                 market_ticker: self.market_ticker, 
                 yes: self.yes, 
-                no: apply_delta(self.no, rhs.price, rhs.delta)
+                no: apply_delta(self.no, rhs.price, rhs.delta),
+                ts: rhs.ts
             }
         }
     }

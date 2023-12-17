@@ -1,92 +1,49 @@
 #[allow(unused_imports)]
 
+mod messages;
+mod sinks;
+mod auth;
+mod constants;
+mod views;
+
 extern crate websocket;
-use clap::{App, Arg};
 use native_tls::TlsStream;
 use websocket::sync::Client;
 use websocket::{ClientBuilder, OwnedMessage, Message};
-use websocket::header::{Headers, Authorization, Bearer};
+use websocket::header::Headers;
 use std::net::TcpStream;
-use std::env;
 use log::{debug, info, trace};
-use anyhow::anyhow;
 
-use crate::kalshi_wss::SubscribeSubMessage;
-use crate::kalshi_wss::KalshiClientSubMessage as SubMessage;
-use crate::kalshi_wss::MarketDataMessage;
-use crate::redis_utils::RedisClient;
+use crate::messages::kalshi::SubscribeSubMessage;
+use crate::messages::kalshi::KalshiClientSubMessage as SubMessage;
+use crate::messages::kalshi::MarketDataMessage;
+use crate::messages::kalshi::KalshiClientMessageBuilder;
+use crate::sinks::redis::RedisClient;
+use crate::auth::kalshi;
+use crate::views::clap;
 
-mod kalshi_http;
-mod constants;
-mod kalshi_wss;
-mod redis_utils;
 
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
     env_logger::Builder::from_default_env().format_timestamp_micros().init();
 
-    let matches = App::new("Kalshi MDP Server")
-        .version("1.1")
-        .about("Subscribe to market data on the Kalshi websocket & relay to local redis instance")
-        .arg(
-            Arg::new("snapshots")
-                .long("snapshots")
-                .help("List of tickers to subscribe to for orderbook snapshots")
-                .takes_value(true)
-                .multiple_values(true),
-        )
-        .arg(
-            Arg::new("trades")
-                .long("trades")
-                .help("List of tickers to subscribe to for trades")
-                .takes_value(true)
-                .multiple_values(true),
-        )
-        .get_matches();
-
-    let snapshot_tickers = matches.values_of("snapshots").unwrap_or_default().map(|s| s.to_string()).collect::<Vec<String>>();
-    let trade_tickers = matches.values_of("trades").unwrap_or_default().map(|s| s.to_string()).collect::<Vec<String>>();
-
-    let token = kalshi_http::login(
-        constants::PROD_API, 
-        kalshi_http::LoginBody::new(
-            constants::USER.to_string(), 
-            constants::PW.to_string()))
-        .await
-        .expect("Could not get a token.")
-        .token;
-
     let mut custom_headers = Headers::new();
-    custom_headers.set(Authorization(Bearer {
-        token: token.to_owned(),
-    }));
-
+    kalshi::set_websocket_headers(&mut custom_headers).await?;
     let mut client = ClientBuilder::new(constants::PROD_WSS)
         .unwrap()
         .custom_headers(&custom_headers)
         .connect_secure(None) // Connect with TLS
         .unwrap();
 
-    let mut msg_builder = kalshi_wss::KalshiClientMessageBuilder::new();
+    let mut msg_builder = KalshiClientMessageBuilder::new();
 
-    // Subscribe to snapshots on user-specified tickers
-    if !snapshot_tickers.is_empty() {
-        let snapshot_sub_msg = SubscribeSubMessage::new_default(snapshot_tickers);
-        let init_sub_msg = msg_builder.content(SubMessage::SubscribeSubMessage(snapshot_sub_msg))
+    let ticker_set = clap::get_argument_tickers()?;
+    let subscribe_sub_messages = SubscribeSubMessage::new_snapshot_and_trades(ticker_set);
+
+    for message in subscribe_sub_messages.into_iter() {
+        let to_send = msg_builder.content(SubMessage::SubscribeSubMessage(message))
             .build();
-
-        info!("Sending initial snapshot subscription message: {:?}", serde_json::to_string(&init_sub_msg).unwrap());
-        client.send_message(&init_sub_msg.to_websocket_message())?;
-    }
-
-    // Subscribe to trades on user-specified tickers
-    if !trade_tickers.is_empty() {
-        let trade_sub_msg = SubscribeSubMessage::new_trades(trade_tickers);
-        let init_sub_msg = msg_builder.content(SubMessage::SubscribeSubMessage(trade_sub_msg))
-            .build();
-
-        info!("Sending initial trades subscription message: {:?}", serde_json::to_string(&init_sub_msg).unwrap());
-        client.send_message(&init_sub_msg.to_websocket_message())?;
+        client.send_message(&to_send.to_websocket_message())?;
     }
 
     receive_loop(client)
