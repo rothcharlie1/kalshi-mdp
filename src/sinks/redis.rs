@@ -1,4 +1,5 @@
 use log::debug;
+use log::error;
 use redis::Client;
 use redis::Commands;
 use redis::Connection;
@@ -60,9 +61,8 @@ impl RedisClient {
                     Ok(())
                 },
                 Err(_e) => {
-                    debug!("Ignoring Redis error.");
-                    // print the error
-                    debug!("{:?}", _e);
+                    // error log the line: "Encountered redis error when writing snapshot: {:?}"
+                    error!("Encountered redis error when writing snapshot: {:?}", _e);
                     Ok(())
                 }
             }
