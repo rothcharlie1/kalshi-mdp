@@ -54,13 +54,15 @@ impl RedisClient {
         match redis::cmd("HSET")
             .arg(ticker)
             .arg(&to_write)
-            .query::<Snapshot>(&mut self.conn) {
+            .query::<i32>(&mut self.conn) {
                 Ok(_t) => {
                     debug!("Wrote snapshot for {} to Redis", ticker);
                     Ok(())
                 },
                 Err(_e) => {
                     debug!("Ignoring Redis error.");
+                    // print the error
+                    debug!("{:?}", _e);
                     Ok(())
                 }
             }
