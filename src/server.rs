@@ -13,8 +13,8 @@ use websocket::{ClientBuilder, OwnedMessage, Message};
 use websocket::header::Headers;
 use std::net::TcpStream;
 use tracing::{info, debug, error, trace};
+use tracing_subscriber::EnvFilter;
 use tracing_subscriber::fmt::format::FmtSpan;
-use tracing_subscriber::{EnvFilter, fmt};
 
 use crate::messages::kalshi::SubscribeSubMessage;
 use crate::messages::kalshi::KalshiClientSubMessage as SubMessage;
@@ -26,9 +26,6 @@ use crate::views::clap;
 
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
-
-    use tracing_subscriber::fmt::format::FmtSpan;
-    use tracing_subscriber::EnvFilter;
 
     let file_appender = tracing_appender::rolling::daily(constants::LOG_PATH, "kalshi-mdp.log");
     let (non_blocking, _guard) = tracing_appender::non_blocking(file_appender);
