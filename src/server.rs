@@ -12,7 +12,7 @@ use websocket::sync::Client;
 use websocket::{ClientBuilder, OwnedMessage, Message};
 use websocket::header::Headers;
 use std::net::TcpStream;
-use log::{debug, info, trace};
+use log::{debug, info, trace, error};
 
 use crate::messages::kalshi::SubscribeSubMessage;
 use crate::messages::kalshi::KalshiClientSubMessage as SubMessage;
@@ -43,7 +43,10 @@ async fn main() -> Result<(), anyhow::Error> {
     for message in subscribe_sub_messages.into_iter() {
         let to_send = msg_builder.content(SubMessage::SubscribeSubMessage(message))
             .build();
-        client.send_message(&to_send.to_websocket_message())?;
+        match client.send_message(&to_send.to_websocket_message()) {
+            Ok(()) => {},
+            Err(e) => panic!("Failed to send subscribe message with error {e:?}") 
+        }
     }
 
     receive_loop(client)
@@ -89,7 +92,7 @@ fn handle_received_text(text: String, redis_conn: &mut RedisClient) -> Result<()
     match redis_conn.write(wrapper_msg.msg) {
         Ok(()) => Ok(()),
         Err(_e) => {
-            debug!("Failed to write to Redis for unknown reason");
+            error!("Failed to write to Redis for unknown reason");
             Ok(())
         }
     }
