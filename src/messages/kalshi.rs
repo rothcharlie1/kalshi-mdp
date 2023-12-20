@@ -1,4 +1,4 @@
-use log::debug;
+use tracing::debug;
 use redis_derive::{ToRedisArgs, FromRedisValue};
 use serde_json;
 use serde::{Deserialize, Serialize};

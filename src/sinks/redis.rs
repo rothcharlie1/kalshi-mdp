@@ -1,4 +1,4 @@
-use log::debug;
+use tracing::{debug, error};
 use redis::Client;
 use redis::Commands;
 use redis::Connection;
@@ -54,13 +54,14 @@ impl RedisClient {
         match redis::cmd("HSET")
             .arg(ticker)
             .arg(&to_write)
-            .query::<Snapshot>(&mut self.conn) {
+            .query::<i32>(&mut self.conn) {
                 Ok(_t) => {
                     debug!("Wrote snapshot for {} to Redis", ticker);
                     Ok(())
                 },
                 Err(_e) => {
-                    debug!("Ignoring Redis error.");
+                    // error log the line: "Encountered redis error when writing snapshot: {:?}"
+                    error!("Encountered redis error when writing snapshot: {:?}", _e);
                     Ok(())
                 }
             }

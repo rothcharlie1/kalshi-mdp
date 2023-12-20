@@ -12,7 +12,9 @@ use websocket::sync::Client;
 use websocket::{ClientBuilder, OwnedMessage, Message};
 use websocket::header::Headers;
 use std::net::TcpStream;
-use log::{debug, info, trace};
+use tracing::{info, debug, error, trace};
+use tracing_subscriber::EnvFilter;
+use tracing_subscriber::fmt::format::FmtSpan;
 
 use crate::messages::kalshi::SubscribeSubMessage;
 use crate::messages::kalshi::KalshiClientSubMessage as SubMessage;
@@ -22,10 +24,17 @@ use crate::sinks::redis::RedisClient;
 use crate::auth::kalshi;
 use crate::views::clap;
 
-
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
-    env_logger::Builder::from_default_env().format_timestamp_micros().init();
+
+    let file_appender = tracing_appender::rolling::daily(constants::LOG_PATH, "kalshi-mdp.log");
+    let (non_blocking, _guard) = tracing_appender::non_blocking(file_appender);
+
+    tracing_subscriber::fmt()
+        .with_writer(non_blocking)
+        .with_span_events(FmtSpan::CLOSE) // Include span close events
+        .with_env_filter(EnvFilter::from_default_env()) // Use the RUST_LOG environment variable
+        .init();
 
     let mut custom_headers = Headers::new();
     kalshi::set_websocket_headers(&mut custom_headers).await?;
@@ -43,7 +52,10 @@ async fn main() -> Result<(), anyhow::Error> {
     for message in subscribe_sub_messages.into_iter() {
         let to_send = msg_builder.content(SubMessage::SubscribeSubMessage(message))
             .build();
-        client.send_message(&to_send.to_websocket_message())?;
+        match client.send_message(&to_send.to_websocket_message()) {
+            Ok(()) => {},
+            Err(e) => panic!("Failed to send subscribe message with error {e:?}") 
+        }
     }
 
     receive_loop(client)
@@ -89,7 +101,7 @@ fn handle_received_text(text: String, redis_conn: &mut RedisClient) -> Result<()
     match redis_conn.write(wrapper_msg.msg) {
         Ok(()) => Ok(()),
         Err(_e) => {
-            debug!("Failed to write to Redis for unknown reason");
+            error!("Failed to write to Redis for unknown reason");
             Ok(())
         }
     }
