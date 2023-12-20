@@ -12,9 +12,9 @@ use websocket::sync::Client;
 use websocket::{ClientBuilder, OwnedMessage, Message};
 use websocket::header::Headers;
 use std::net::TcpStream;
-use tracing::{info, debug, error, trace, Level};
+use tracing::{info, debug, error, trace};
 use tracing_subscriber::fmt::format::FmtSpan;
-use tracing_subscriber::util::SubscriberInitExt;
+use tracing_subscriber::{EnvFilter, fmt};
 
 use crate::messages::kalshi::SubscribeSubMessage;
 use crate::messages::kalshi::KalshiClientSubMessage as SubMessage;
@@ -26,15 +26,17 @@ use crate::views::clap;
 
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
-    //env_logger::Builder::from_default_env().format_timestamp_micros().init();
+
+    use tracing_subscriber::fmt::format::FmtSpan;
+    use tracing_subscriber::EnvFilter;
+
     let file_appender = tracing_appender::rolling::daily(constants::LOG_PATH, "kalshi-mdp.log");
     let (non_blocking, _guard) = tracing_appender::non_blocking(file_appender);
 
     tracing_subscriber::fmt()
-        .with_max_level(Level::DEBUG) // Set the max log level
-        .with_span_events(FmtSpan::CLOSE) // Include span close events
         .with_writer(non_blocking)
-        .finish()
+        .with_span_events(FmtSpan::CLOSE) // Include span close events
+        .with_env_filter(EnvFilter::from_default_env()) // Use the RUST_LOG environment variable
         .init();
 
     let mut custom_headers = Headers::new();
