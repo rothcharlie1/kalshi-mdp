@@ -12,7 +12,9 @@ use websocket::sync::Client;
 use websocket::{ClientBuilder, OwnedMessage, Message};
 use websocket::header::Headers;
 use std::net::TcpStream;
-use log::{debug, info, trace, error};
+use tracing::{info, debug, error, trace, Level};
+use tracing_subscriber::fmt::format::FmtSpan;
+use tracing_subscriber::util::SubscriberInitExt;
 
 use crate::messages::kalshi::SubscribeSubMessage;
 use crate::messages::kalshi::KalshiClientSubMessage as SubMessage;
@@ -22,10 +24,18 @@ use crate::sinks::redis::RedisClient;
 use crate::auth::kalshi;
 use crate::views::clap;
 
-
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
-    env_logger::Builder::from_default_env().format_timestamp_micros().init();
+    //env_logger::Builder::from_default_env().format_timestamp_micros().init();
+    let file_appender = tracing_appender::rolling::daily(constants::LOG_PATH, "kalshi-mdp.log");
+    let (non_blocking, _guard) = tracing_appender::non_blocking(file_appender);
+
+    tracing_subscriber::fmt()
+        .with_max_level(Level::DEBUG) // Set the max log level
+        .with_span_events(FmtSpan::CLOSE) // Include span close events
+        .with_writer(non_blocking)
+        .finish()
+        .init();
 
     let mut custom_headers = Headers::new();
     kalshi::set_websocket_headers(&mut custom_headers).await?;

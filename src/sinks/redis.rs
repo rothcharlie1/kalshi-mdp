@@ -1,5 +1,4 @@
-use log::debug;
-use log::error;
+use tracing::{debug, error};
 use redis::Client;
 use redis::Commands;
 use redis::Connection;
